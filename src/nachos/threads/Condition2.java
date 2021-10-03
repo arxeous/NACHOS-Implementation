@@ -30,11 +30,13 @@ public class Condition2 {
      * current thread must hold the associated lock. The thread will
      * automatically reacquire the lock before <tt>sleep()</tt> returns.
      */
-    public void sleep() {
+    public void sleep() {    
 	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+    KThread thread = KThread.currentThread();
 
 	conditionLock.release();
-
+    waitQueue.waitForAccess(thread);
+    KThread.sleep();
 	conditionLock.acquire();
     }
 
@@ -44,6 +46,10 @@ public class Condition2 {
      */
     public void wake() {
 	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+    KThread someProcess; 
+    
+    if((someProcess = waitQueue.nextThread()) != null) 
+        someProcess.ready();
     }
 
     /**
@@ -52,7 +58,14 @@ public class Condition2 {
      */
     public void wakeAll() {
 	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+    KThread someProcess; 
+    
+    while((someProcess = waitQueue.nextThread()) != null) {
+        someProcess.ready();
+    }
     }
 
     private Lock conditionLock;
+    private ThreadQueue waitQueue =
+	ThreadedKernel.scheduler.newThreadQueue(true);
 }
