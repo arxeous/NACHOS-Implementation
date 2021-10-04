@@ -8,7 +8,8 @@
             "type": "java",
             "name": "Launch Current File",
             "request": "launch",
-            "mainClass": "${file}"
+            "mainClass": "${file}",
+            "args": "-- nachos.ag.ThreadGrader1"
         },
         {
             "type": "java",
@@ -16,7 +17,6 @@
             "request": "launch",
             "mainClass": "nachos.machine.Machine",
             "projectName": "Nachos"
-            "args": "-- nachos.ag.ThreadGrader1"
         }
     ]
 }
