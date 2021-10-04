@@ -20,8 +20,8 @@ public class Condition2 {
      *				lock whenever it uses <tt>sleep()</tt>,
      *				<tt>wake()</tt>, or <tt>wakeAll()</tt>.
      */
-    public Condition2(Lock conditionLock) {
-	this.conditionLock = conditionLock;
+        public Condition2(Lock conditionLock) {
+	    this.conditionLock = conditionLock;
     }
 
     /**
@@ -31,13 +31,15 @@ public class Condition2 {
      * automatically reacquire the lock before <tt>sleep()</tt> returns.
      */
     public void sleep() {    
-	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
-    KThread thread = KThread.currentThread();
-
-	conditionLock.release();
-    waitQueue.waitForAccess(thread);
-    KThread.sleep();
-	conditionLock.acquire();
+	    Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+        KThread thread = KThread.currentThread();
+	    boolean intStatus = Machine.interrupt().disable();
+        
+        waitQueue.waitForAccess(thread);
+        conditionLock.release();
+        KThread.sleep();
+	    conditionLock.acquire();
+        Machine.interrupt().restore(intStatus);
     }
 
     /**
@@ -45,24 +47,28 @@ public class Condition2 {
      * current thread must hold the associated lock.
      */
     public void wake() {
-	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
-    KThread someProcess; 
-    
-    if((someProcess = waitQueue.nextThread()) != null) 
-        someProcess.ready();
+	    Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+        KThread someProcess; 
+        
+        boolean intStatus = Machine.interrupt().disable();
+        if((someProcess = waitQueue.nextThread()) != null) 
+            someProcess.ready();
+        Machine.interrupt().restore(intStatus);
     }
+
 
     /**
      * Wake up all threads sleeping on this condition variable. The current
      * thread must hold the associated lock.
      */
     public void wakeAll() {
-	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
-    KThread someProcess; 
-    
-    while((someProcess = waitQueue.nextThread()) != null) {
-        someProcess.ready();
-    }
+	    Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+        KThread someProcess; 
+        
+         while((someProcess = waitQueue.nextThread()) != null) {
+            someProcess.ready();
+        }
+
     }
 
     private Lock conditionLock;
