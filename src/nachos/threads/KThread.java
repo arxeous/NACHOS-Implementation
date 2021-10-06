@@ -53,6 +53,7 @@ public class KThread {
 	    currentThread = this;
 	    tcb = TCB.currentTCB();
 	    name = "main";
+        
 	    restoreState();
 
 	    createIdleThread();
@@ -191,6 +192,9 @@ public class KThread {
 	Lib.assertTrue(toBeDestroyed == null);
 	toBeDestroyed = currentThread;
 
+    myLock.acquire();
+    currentThread.myCond.wake();
+    myLock.release();
 
 	currentThread.status = statusFinished;
 	
@@ -274,9 +278,18 @@ public class KThread {
      */
     public void join() {
 	Lib.debug(dbgThread, "Joining to thread: " + toString());
-
 	Lib.assertTrue(this != currentThread);
+    
+    myLock.acquire();
 
+    if(status == statusFinished)  {     // We need to see if the thread is finished before we do anything else.
+        myLock.release();
+    }
+    else {
+        myCond.sleep();
+        myLock.release();
+        
+    }
     }
 
     /**
@@ -440,6 +453,8 @@ public class KThread {
     /** Number of times the KThread constructor was called. */
     private static int numCreated = 0;
 
+    private static Lock myLock = new Lock(); 
+    private Condition2 myCond = new Condition2(myLock);
     private static ThreadQueue readyQueue = null;
     private static KThread currentThread = null;
     private static KThread toBeDestroyed = null;
