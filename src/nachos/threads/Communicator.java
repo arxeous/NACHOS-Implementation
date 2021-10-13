@@ -1,5 +1,7 @@
 package nachos.threads;
 
+import java.util.LinkedList;
+
 import nachos.machine.*;
 
 /**
@@ -14,6 +16,7 @@ public class Communicator {
      * Allocate a new communicator.
      */
     public Communicator() {
+      myLock = new Lock();
     }
 
     /**
@@ -27,6 +30,23 @@ public class Communicator {
      * @param	word	the integer to transfer.
      */
     public void speak(int word) {
+        
+        myLock.acquire();
+        int theMessage = word;
+
+        if(listOfListeners.isEmpty()) {
+            Condition2 thisThreadCond = new Condition2(myLock);
+            modelData thisThread = new modelData(theMessage, thisThreadCond);
+            listOfSpeakers.add(thisThread);
+            thisThread.myCondition.sleep();
+        }
+        else {
+            listOfListeners.getFirst().myMessage = word;
+            listOfListeners.remove().myCondition.wake();
+        }
+        myLock.release();
+        return;
+    
     }
 
     /**
@@ -36,6 +56,36 @@ public class Communicator {
      * @return	the integer transferred.
      */    
     public int listen() {
-	return 0;
+        myLock.acquire();
+        int theMessage;
+
+        if(listOfSpeakers.isEmpty()) {
+            Condition2 thisThreadCond = new Condition2(myLock);
+            modelData thisThread = new modelData(0, thisThreadCond);
+            listOfListeners.add(thisThread);
+            thisThread.myCondition.sleep();
+            theMessage = thisThread.myMessage;
+        }
+        else {
+            theMessage = listOfSpeakers.getFirst().myMessage;
+            listOfSpeakers.remove().myCondition.wake();
+        }
+        
+        myLock.release();
+        return theMessage;
+    }
+    
+    private Lock myLock;
+    private LinkedList<modelData> listOfListeners = new LinkedList<modelData>();
+    private LinkedList<modelData> listOfSpeakers = new LinkedList<modelData>();
+
+    private class modelData {
+        int myMessage;
+        Condition2 myCondition;
+
+        public modelData(int message, Condition2 cond) {
+            this.myMessage = message;
+            this.myCondition = cond;
+        }
     }
 }

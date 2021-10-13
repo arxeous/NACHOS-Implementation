@@ -71,6 +71,13 @@ public class Condition2 {
 
     }
 
+    /**
+     * Check to see if the wait queue is empty or not.
+     */
+    public boolean isEmpty() {
+        return (waitQueue.nextThread() == null);
+    }
+
     private Lock conditionLock;
     private ThreadQueue waitQueue =
 	ThreadedKernel.scheduler.newThreadQueue(true);

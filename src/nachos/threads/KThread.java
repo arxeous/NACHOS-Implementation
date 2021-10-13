@@ -288,7 +288,6 @@ public class KThread {
     else {
         myCond.sleep();
         myLock.release();
-        
     }
     }
 

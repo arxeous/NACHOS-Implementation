@@ -1,10 +1,11 @@
 package nachos.threads;
-
 import nachos.machine.*;
-
 import java.util.TreeSet;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.PriorityQueue;
+import java.util.LinkedList;
 
 /**
  * A scheduler that chooses threads based on their priorities.
@@ -142,8 +143,10 @@ public class PriorityScheduler extends Scheduler {
 
 	public KThread nextThread() {
 	    Lib.assertTrue(Machine.interrupt().disabled());
-	    // implement me
-	    return null;
+		// implement
+		if(priorityQueue.isEmpty()) 
+			return null;
+		return priorityQueue.poll();
 	}
 
 	/**
@@ -154,8 +157,7 @@ public class PriorityScheduler extends Scheduler {
 	 *		return.
 	 */
 	protected ThreadState pickNextThread() {
-	    // implement me
-	    return null;
+		return getThreadState(priorityQueue.peek());
 	}
 	
 	public void print() {
@@ -163,11 +165,13 @@ public class PriorityScheduler extends Scheduler {
 	    // implement me (if you want)
 	}
 
+
 	/**
 	 * <tt>true</tt> if this queue should transfer priority from waiting
 	 * threads to the owning thread.
 	 */
 	public boolean transferPriority;
+	private java.util.PriorityQueue<KThread> priorityQueue = new java.util.PriorityQueue<KThread>(10, new KThreadComparator());
     }
 
     /**
@@ -177,7 +181,8 @@ public class PriorityScheduler extends Scheduler {
      *
      * @see	nachos.threads.KThread#schedulingState
      */
-    protected class ThreadState {
+   
+	 protected class ThreadState {
 	/**
 	 * Allocate a new <tt>ThreadState</tt> object and associate it with the
 	 * specified thread.
@@ -205,8 +210,22 @@ public class PriorityScheduler extends Scheduler {
 	 * @return	the effective priority of the associated thread.
 	 */
 	public int getEffectivePriority() {
-	    // implement me
-	    return priority;
+		// Effective priority should be set to our normal priority from the serPriority function.
+		// At first we just set our effective priority to whatever our actual priority is. 
+		// effectivePriority = priority;
+
+		// If our list of resources isnt empty, just run through it and find the highest priority.
+		// As explained in class we also need to find whether this other resource has some high priority thread using it
+		// So we call this function on the threadstate to change its 
+		/*	if(!myResources.isEmpty()) {
+			for(PriorityQueue someResource: myResources) {
+				if(effectivePriority < someResource.pickNextThread().getEffectivePriority() && someResource.transferPriority)
+					effectivePriority = someResource.pickNextThread().getEffectivePriority();
+			}
+		}
+
+	    return effectivePriority;*/
+		return priority;
 	}
 
 	/**
@@ -219,8 +238,8 @@ public class PriorityScheduler extends Scheduler {
 		return;
 	    
 	    this.priority = priority;
-	    
-	    // implement me
+		this.effectivePriority = priority;
+	
 	}
 
 	/**
@@ -236,7 +255,8 @@ public class PriorityScheduler extends Scheduler {
 	 * @see	nachos.threads.ThreadQueue#waitForAccess
 	 */
 	public void waitForAccess(PriorityQueue waitQueue) {
-	    // implement me
+		Lib.assertTrue(Machine.interrupt().disabled());
+		waitQueue.priorityQueue.add(thread);
 	}
 
 	/**
@@ -250,12 +270,31 @@ public class PriorityScheduler extends Scheduler {
 	 * @see	nachos.threads.ThreadQueue#nextThread
 	 */
 	public void acquire(PriorityQueue waitQueue) {
-	    // implement me
+		//waitQueue.waitForAccess(thread);
+		//myResources.add(waitQueue);
+		Lib.assertTrue(Machine.interrupt().disabled());
+	    Lib.assertTrue(waitQueue.priorityQueue.isEmpty());
 	}	
 
 	/** The thread with which this object is associated. */	   
 	protected KThread thread;
 	/** The priority of the associated thread. */
 	protected int priority;
+	// The cache for our EffectivePriority. 
+	protected int effectivePriority;
+	// If we are to take priorityqueue as a representation of a resource, then naturally we should have 
+	// a list of all the resources that correspond to this thread (since thread state is supposed to encapsulate a thread).
+	protected LinkedList<PriorityQueue> myResources = new LinkedList<PriorityQueue>(); 
     }
+
+	class KThreadComparator implements Comparator<KThread> {
+		@Override
+		public int compare(KThread o1, KThread o2) {
+			if(getThreadState(o1).getPriority() > getThreadState(o2).getPriority())
+				return 1;
+			else if(getThreadState(o1).getPriority() < getThreadState(o2).getPriority())
+				return -1;
+			return 0;
+		}
+	}
 }

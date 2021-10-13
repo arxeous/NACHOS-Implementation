@@ -27,7 +27,11 @@ public class Alarm {
      * that should be run.
      */
     public void timerInterrupt() {
-	
+        if(waitTime <= Machine.timer().getTime()) {
+            myLock.acquire();
+            myCond.wake();
+            myLock.release();
+        }
     }
 
     /**
@@ -46,8 +50,17 @@ public class Alarm {
      */
     public void waitUntil(long x) {
 	// for now, cheat just to get something working (busy waiting is bad)
-	long wakeTime = Machine.timer().getTime() + x;
-	while (wakeTime > Machine.timer().getTime())
-	    
+    waitTime = Machine.timer().getTime() + x;
+    
+    myLock.acquire();
+	while (waitTime > Machine.timer().getTime()) {
+        myCond.sleep();
     }
+    myLock.release();
+
+    }
+
+    private long waitTime;
+    private Lock myLock = new Lock();
+    private Condition2 myCond = new Condition2(myLock);
 }
