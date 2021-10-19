@@ -140,7 +140,9 @@ public class PriorityScheduler extends Scheduler {
 			Lib.assertTrue(Machine.interrupt().disabled());
 			KThread nextThread = priorityQueue.peek();
 
-			
+			// Next thread simply gets the next thread from our priority queue, 
+			// and checks if it its null or not.
+			// if it isnt we restore this next threads priority, remove it from our queue and return it.
 			if (nextThread == null)
 				return null;
 			getThreadState(nextThread).effectivePriority = getThreadState(nextThread).getPriority();
@@ -157,6 +159,7 @@ public class PriorityScheduler extends Scheduler {
 		 * @return the next thread that <tt>nextThread()</tt> would return.
 		 */
 		protected ThreadState pickNextThread() {
+			// Picking next thread is a simple peek into our priority queue.
 			return getThreadState(priorityQueue.peek());
 		}
 
@@ -213,6 +216,10 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public int getEffectivePriority() {
 			// Check what exactly it is we are waiting on
+			// If our effective priority is larger than the resource owners effective priority (EP)
+			// we donate our EP to the resource owner and then calculate the EP for any resource its waiting on.
+			// Finally we return the resources priority. This is done to ensure that not only are we donating our high priority to lower threads, but we are
+			// also recieving the lower priority so those threads are ensured to finish. 
 			if(waitingResource != null) {
 				if(waitingResource.currentOwner != null) {
 					if(effectivePriority <= waitingResource.currentOwner.effectivePriority)
@@ -259,9 +266,11 @@ public class PriorityScheduler extends Scheduler {
 		public void waitForAccess(PriorityQueue waitQueue) {
 			Lib.assertTrue(Machine.interrupt().disabled());
 			// We store waitQueue in waitingResource to indicate that this thread is now waiting for this specific resource
+			// we also add the thread associated with this threadstate to the priority queue.
 			waitingResource = waitQueue;
 			waitQueue.priorityQueue.add(thread);
-			// Then we check this current owners effective priority, if its lower than ours this is where donation happens
+			// Then we call getEP to check current owner of the resource we are waiting ons effective priority. This is essentially where donation occurs
+			// and where we traverse the graph donating to any threads necessary. 
 			effectivePriority = getEffectivePriority();
 		}
 
@@ -277,8 +286,9 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public void acquire(PriorityQueue waitQueue) {
 			Lib.assertTrue(Machine.interrupt().disabled());
+			// Make the current owner of the resource this thread state
 			waitQueue.currentOwner = this;
-			// This thread is no longer waiting for this resource, it owns it so we remove it 
+			// This thread is no longer waiting for this resource. It now owns it so we remove it 
 			// from our priority queue.
 			waitQueue.priorityQueue.remove(thread); 
 			// We then add the resource to the list of resources this thread owns.
