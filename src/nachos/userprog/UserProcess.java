@@ -27,6 +27,8 @@ public class UserProcess {
 	pageTable = new TranslationEntry[numPhysPages];
 	for (int i=0; i<numPhysPages; i++)
 	    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
+    openFiles[0] = UserKernel.console.openForReading();
+    openFiles[1] = UserKernel.console.openForWriting();
     }
     
     /**
@@ -346,9 +348,35 @@ public class UserProcess {
 	return 0;
     }
 
+    private int handleCreat(int nameAdd) {
+        String fileName  = readVirtualMemoryString(nameAdd, MAX_NAME_LENGTH);
+        if(fileName == null || fileName.length() == 0)
+            return -1;
+        
+        for(int i = 0; i < MAX_NUM_OF_FILES; i++) {
+            if(fileName == openFiles[i].getName())
+                return i;
+        }
+       
+        int fileDescrip = getUnusedFileDescrip();
+        if(fileDescrip == -1)
+            return fileDescrip;
+        
+        openFiles[fileDescrip] = ThreadedKernel.fileSystem.open(fileName, true);
+        return fileDescrip;
+        
+    }
+
+    private int getUnusedFileDescrip() {
+        for(int i = 0; i < MAX_NUM_OF_FILES; i++) {
+            if(openFiles[i] == null)
+                 return i;
+        }
+        return -1;
+    }
 
     private static final int
-        syscallHalt = 0,
+    syscallHalt = 0,
 	syscallExit = 1,
 	syscallExec = 2,
 	syscallJoin = 3,
@@ -391,6 +419,8 @@ public class UserProcess {
 	switch (syscall) {
 	case syscallHalt:
 	    return handleHalt();
+    case syscallCreate:
+        return handleCreat(a0);
 
 
 	default:
@@ -443,7 +473,12 @@ public class UserProcess {
     
     private int initialPC, initialSP;
     private int argc, argv;
+    private static final int MAX_NAME_LENGTH = 256;
+    private static final int MAX_NUM_OF_FILES = 256;
 	
+
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
-}
+    private OpenFile[] openFiles = new OpenFile[MAX_NUM_OF_FILES];  
+    
+} 
