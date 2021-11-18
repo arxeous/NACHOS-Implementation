@@ -349,22 +349,110 @@ public class UserProcess {
     }
 
     private int handleCreat(int nameAdd) {
-        String fileName  = readVirtualMemoryString(nameAdd, MAX_NAME_LENGTH);
+        String fileName  = readVirtualMemoryString(nameAdd, MAX_NAME_LENGTH);           // Get name from address, return -1 if null or no real string given.
         if(fileName == null || fileName.length() == 0)
             return -1;
         
-        for(int i = 0; i < MAX_NUM_OF_FILES; i++) {
+        for(int i = 0; i < MAX_NUM_OF_FILES; i++) {                                     // Search through our list of open files to see if a file with that given name is already open.
+            if(fileName == openFiles[i].getName())
+                return i;                                                               // If there is such a file, return its fd.
+        }
+       
+        int fileDescrip = getUnusedFileDescrip();                                       // Otherwise get a free space in our array and return it into fileDescrip 
+        if(fileDescrip == -1)                                                           // If there is no space return -1
+            return fileDescrip;
+        
+        openFiles[fileDescrip] = ThreadedKernel.fileSystem.open(fileName, true);        // Otherwise create a new file at this fd in our array and return the fd.
+        return fileDescrip;                                                             // We use the filesystems open to create our file by sending in the true param. 
+                                                                                        // If the param was false wed open and return null if we could not open the file.
+    }
+
+    private int handleOpen(int nameAdd) {
+        String fileName  = readVirtualMemoryString(nameAdd, MAX_NAME_LENGTH);
+        if(fileName == null || fileName.length() == 0)
+            return -1;
+
+        for(int i = 0; i < MAX_NUM_OF_FILES; i++) {     
             if(fileName == openFiles[i].getName())
                 return i;
         }
-       
+        
+        OpenFile fileOpen = ThreadedKernel.fileSystem.open(fileName, false);            // Open the file, open will return null if it could not open the file.
+        if(fileOpen == null) {                                                          // If the file already exist it opens the file without returning it.
+            return -1;
+        }
+
         int fileDescrip = getUnusedFileDescrip();
-        if(fileDescrip == -1)
+        if(fileDescrip == -1)                                                           
             return fileDescrip;
-        
-        openFiles[fileDescrip] = ThreadedKernel.fileSystem.open(fileName, true);
+
+        openFiles[fileDescrip] = fileOpen;
         return fileDescrip;
+    }
+
+    private int handleRead(int fd, int buff, int bytes) {
+        byte[] myData = new byte[bytes]; 
+
+        if(fd < 0 || bytes < 0 || fd > MAX_NUM_OF_FILES || openFiles[fd] == null )      // Check to see if the fd/byte count is valid or if the file even exist in our array
+            return -1;   
+        OpenFile fileRead  = openFiles[fd];
         
+        int bytesRead = fileRead.read(myData, 0, bytes);                                // Read from the file and place the data into myData 
+        int bytesWrittenToBuff = writeVirtualMemory(buff, myData, 0, bytesRead);              // Take the data from myData and place it into the buffer passed to us in buff
+                                                                                        // Making sure that the # of bytes read is the # of bytes written to this buffer
+
+        if(bytesRead != bytesWrittenToBuff)                                                   // If the two differ something went wrong.
+            return -1;
+        return bytesWrittenToBuff;
+    }
+
+    private int handleWrite(int fd, int buff, int bytes) {
+        byte[] myData = new byte[bytes]; 
+
+        if(fd < 0 || bytes < 0 || fd > MAX_NUM_OF_FILES || openFiles[fd] == null )      // Check to see if the fd/byte count is valid or if the file even exist in our array
+            return -1;
+       
+        OpenFile fileWrite = openFiles[fd];
+        int bytesWritten = readVirtualMemory(buff, myData, 0, bytes);
+        int fileByteWritten = fileWrite.write(myData, 0, bytesWritten);
+
+        if(fileByteWritten != bytes)
+            return -1;
+
+        return fileByteWritten;
+    }
+
+    private int handleClose(int fd) {
+        if(fd < 0 || fd > MAX_NUM_OF_FILES || openFiles[fd] == null)
+            return -1;
+        
+        OpenFile fileClose = openFiles[fd];
+        openFiles[fd] = null;
+        fileClose.close();
+        return 0;
+    }
+
+    private int handleUnlink(int nameAdd) {
+        String fileName  = readVirtualMemoryString(nameAdd, MAX_NAME_LENGTH);
+        if(fileName == null || fileName.length() == 0)
+            return -1;
+      
+        OpenFile fileDelete = null;
+        FileSystem fileSystem = null;
+       
+        for(int i = 0; i < MAX_NUM_OF_FILES; i++) {     
+            if(fileName == openFiles[i].getName() && !(openFiles[i] == null))  {
+                fileDelete = openFiles[i];
+                openFiles[i] = null;
+            }
+        }
+
+        fileSystem = fileDelete.getFileSystem();
+        
+        if(!fileSystem.remove(fileName))
+            return -1;
+
+        return 0;
     }
 
     private int getUnusedFileDescrip() {
@@ -421,8 +509,16 @@ public class UserProcess {
 	    return handleHalt();
     case syscallCreate:
         return handleCreat(a0);
-
-
+    case syscallOpen:
+        return handleOpen(a0);
+    case syscallRead:
+        return handleRead(a0, a1, a2);
+    case syscallWrite:
+        return handleWrite(a0, a1, a2);
+    case syscallClose:
+        return handleClose(a0);
+    case syscallUnlink:
+        return handleUnlink(a0);
 	default:
 	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
 	    Lib.assertNotReached("Unknown system call!");

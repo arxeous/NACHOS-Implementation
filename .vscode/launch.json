@@ -9,7 +9,7 @@
             "name": "Launch Current File",
             "request": "launch",
             "mainClass": "${file}",
-            //"args": "-x d:\\CS4310\\Nachos\\src\\nachos\\test\\mv.coff"
+            "args": "-d a"
         },
         {
             "type": "java",
