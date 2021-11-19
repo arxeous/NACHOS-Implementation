@@ -2,8 +2,6 @@ package nachos.userprog;
 
 import nachos.machine.*;
 import nachos.threads.*;
-import nachos.userprog.*;
-
 import java.io.EOFException;
 
 /**
@@ -348,13 +346,21 @@ public class UserProcess {
 	return 0;
     }
 
+    private int handleExit(int status) {
+        for(int i = 0; i < MAX_NUM_OF_FILES; i++) {
+            if(openFiles[i] != null)
+                openFiles[i].close();
+        }
+        return 0;
+    }
+
     private int handleCreat(int nameAdd) {
         String fileName  = readVirtualMemoryString(nameAdd, MAX_NAME_LENGTH);           // Get name from address, return -1 if null or no real string given.
         if(fileName == null || fileName.length() == 0)
             return -1;
         
         for(int i = 0; i < MAX_NUM_OF_FILES; i++) {                                     // Search through our list of open files to see if a file with that given name is already open.
-            if(fileName == openFiles[i].getName())
+            if(openFiles[i] != null && fileName == openFiles[i].getName())
                 return i;                                                               // If there is such a file, return its fd.
         }
        
@@ -373,7 +379,7 @@ public class UserProcess {
             return -1;
 
         for(int i = 0; i < MAX_NUM_OF_FILES; i++) {     
-            if(fileName == openFiles[i].getName())
+            if(openFiles[i] != null && fileName == openFiles[i].getName())
                 return i;
         }
         
@@ -398,10 +404,9 @@ public class UserProcess {
         OpenFile fileRead  = openFiles[fd];
         
         int bytesRead = fileRead.read(myData, 0, bytes);                                // Read from the file and place the data into myData 
-        int bytesWrittenToBuff = writeVirtualMemory(buff, myData, 0, bytesRead);              // Take the data from myData and place it into the buffer passed to us in buff
+        int bytesWrittenToBuff = writeVirtualMemory(buff, myData, 0, bytesRead);        // Take the data from myData and place it into the buffer passed to us in buff
                                                                                         // Making sure that the # of bytes read is the # of bytes written to this buffer
-
-        if(bytesRead != bytesWrittenToBuff)                                                   // If the two differ something went wrong.
+        if(bytesRead != bytesWrittenToBuff)                                             // If the two differ something went wrong.
             return -1;
         return bytesWrittenToBuff;
     }
@@ -410,7 +415,7 @@ public class UserProcess {
         byte[] myData = new byte[bytes]; 
 
         if(fd < 0 || bytes < 0 || fd > MAX_NUM_OF_FILES || openFiles[fd] == null )      // Check to see if the fd/byte count is valid or if the file even exist in our array
-            return -1;
+           return -1;
        
         OpenFile fileWrite = openFiles[fd];
         int bytesWritten = readVirtualMemory(buff, myData, 0, bytes);
@@ -436,22 +441,16 @@ public class UserProcess {
         String fileName  = readVirtualMemoryString(nameAdd, MAX_NAME_LENGTH);
         if(fileName == null || fileName.length() == 0)
             return -1;
-      
-        OpenFile fileDelete = null;
-        FileSystem fileSystem = null;
-       
+
         for(int i = 0; i < MAX_NUM_OF_FILES; i++) {     
-            if(fileName == openFiles[i].getName() && !(openFiles[i] == null))  {
-                fileDelete = openFiles[i];
+            if(openFiles[i] != null && fileName == openFiles[i].getName())  {
                 openFiles[i] = null;
+                break;
             }
         }
-
-        fileSystem = fileDelete.getFileSystem();
         
-        if(!fileSystem.remove(fileName))
-            return -1;
-
+        if(!ThreadedKernel.fileSystem.remove(fileName))
+                    return -1;
         return 0;
     }
 
@@ -507,6 +506,8 @@ public class UserProcess {
 	switch (syscall) {
 	case syscallHalt:
 	    return handleHalt();
+    case syscallExit:
+         return handleExit(a0);
     case syscallCreate:
         return handleCreat(a0);
     case syscallOpen:
